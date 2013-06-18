@@ -14,7 +14,7 @@ Quick Start: Setting Up a PayPal Charge (Redirect)
 ```go
 import (
   "fmt"
-  "github.com/crowdmob/paypal"
+  "paypal"
 )
 
 func paypalExpressCheckoutHandler(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +54,7 @@ func paypalExpressCheckoutHandler(w http.ResponseWriter, r *http.Request) {
 ```go
 import (
 	"fmt"
-	"github.com/crowdmob/paypal"
+	"paypal"
 	"appengine"
 	"appengine/urlfetch"
 )
@@ -67,7 +67,7 @@ func paypalExpressCheckoutHandler(w http.ResponseWriter, r *http.Request) {
 	cancelURL    := "http://example.com/cancelURL"
 	
 	// Create the paypal Client with urlfetch
-	client := paypal.NewClient("Your_Username", "Your_Password", "Your_Signature", urlfetch.Client(appengine.NewContext(r)), isSandbox)
+	client := paypal.NewClient("Your_Username", "Your_Password", "Your_Signature", isSandbox, urlfetch.Client(appengine.NewContext(r)))
 
   // Make a array of your digital-goods
   testGoods := []paypal.PayPalDigitalGood{paypal.PayPalDigitalGood{
