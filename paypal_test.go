@@ -1,7 +1,7 @@
 package paypal_test
 
 import (
-  "../paypal"
+  "paypal"
 	"testing"
 	"os"
   "strings"
