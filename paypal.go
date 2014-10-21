@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
+  "time"
 )
 
 const (
@@ -72,13 +73,6 @@ func (r *PayPalResponse) CheckoutUrl() string {
   return fmt.Sprintf("%s?%s", checkoutUrl, query.Encode())
 }
 
-func SumPayPalDigitalGoodAmounts(goods *[]PayPalDigitalGood) (sum float64) {
-  for _, dg := range *goods {
-    sum += dg.Amount * float64(dg.Quantity)
-  }
-  return
-}
-
 func NewDefaultClient(username, password, signature string, usesSandbox bool) *PayPalClient {
 	return &PayPalClient{username, password, signature, usesSandbox, new(http.Client)}
 }
@@ -131,28 +125,41 @@ func (pClient *PayPalClient) PerformRequest(values url.Values) (*PayPalResponse,
 	return response, err
 }
 
-func (pClient *PayPalClient) SetExpressCheckoutDigitalGoods(paymentAmount float64, currencyCode string, returnURL, cancelURL string, goods[]PayPalDigitalGood) (*PayPalResponse, error) {
+//SetExpressCheckout Make the ExpressChckout operation, setting the informations of payment
+func (client *PayPalClient) SetExpressCheckout(ec *ExpressCheckout) (*PayPalResponse, error) {
 	values := url.Values{}
 	values.Set("METHOD", "SetExpressCheckout")
-	values.Add("PAYMENTREQUEST_0_AMT", fmt.Sprintf("%.2f", paymentAmount))
-	values.Add("PAYMENTREQUEST_0_PAYMENTACTION", "Sale");
-	values.Add("PAYMENTREQUEST_0_CURRENCYCODE", currencyCode);
-	values.Add("RETURNURL", returnURL);
-	values.Add("CANCELURL", cancelURL);
+	values.Add("PAYMENTREQUEST_0_AMT", fmt.Sprintf("%.2f", ec.Amount))
+  values.Add("PAYMENTREQUEST_0_CURRENCYCODE", ec.CurrencyCode.String());
+	values.Add("RETURNURL", ec.ReturnURL);
+	values.Add("CANCELURL", ec.CancelURL);
 	values.Add("REQCONFIRMSHIPPING", "0");
 	values.Add("NOSHIPPING", "1");
 	values.Add("SOLUTIONTYPE", "Sole");
 
-	for i := 0; i < len(goods); i++ {
-		good := goods[i]
+  ba := ec.BillingAgreement
+  values.Add("L_BILLINGTYPE0", ba.Type)
+  values.Add("L_BILLINGAGREEMENTDESCRIPTION0", ba.Description)
+  
+	return client.PerformRequest(values)
+}
 
-		values.Add(fmt.Sprintf("%s%d", "L_PAYMENTREQUEST_0_NAME", i), good.Name)
-		values.Add(fmt.Sprintf("%s%d", "L_PAYMENTREQUEST_0_AMT", i), fmt.Sprintf("%.2f", good.Amount))
-		values.Add(fmt.Sprintf("%s%d", "L_PAYMENTREQUEST_0_QTY", i), fmt.Sprintf("%d", good.Quantity))
-		values.Add(fmt.Sprintf("%s%d", "L_PAYMENTREQUEST_0_ITEMCATEGORY", i), "Digital")
-	}
-
-	return pClient.PerformRequest(values)
+//RecurringPaymentProfile Creates a RecurringPayment Profile with all the required data
+func (client *PayPalClient) RecurringPaymentProfile(token string, rp *RecurringPayment) (*PayPalResponse, error) {
+  values := url.Values{}
+	values.Set("METHOD", "CreateRecurringPaymentsProfile")
+  values.Set("TOKEN", token)
+  values.Set("PAYERID", rp.PayerID)
+  values.Set("EMAIL", rp.Email)
+  //TODO Check if this format date is correct
+  values.Set("PROFILESTARTDATE", rp.StartDate.UTC().Format(time.RFC3339))
+  values.Set("DESC", rp.Description)
+  values.Set("CURRENCYCODE", rp.CurrencyCode.String())
+  values.Set("BILLINGPERIOD", rp.Billing.Period)
+  values.Set("BILLINGFREQUENCY", fmt.Sprintf("%d", rp.Billing.Frequency))
+  values.Set("AMT", fmt.Sprintf("%.2f", rp.Billing.AmountInstallment))
+  
+  return client.PerformRequest(values)
 }
 
 // Convenience function for Sale (Charge)

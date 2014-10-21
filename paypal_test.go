@@ -1,10 +1,11 @@
 package paypal_test
 
 import (
-  "paypal"
 	"testing"
 	"os"
   "strings"
+  
+  "github.com/eduardomiani/go-appengine-paypal"
 )
 
 const (
@@ -33,20 +34,19 @@ func TestSandboxRedirect(t *testing.T) {
   
   client := paypal.NewDefaultClient(username, password, signature, true)  
 	
-	// Make a array of your digital-goods
-	testGoods := []paypal.PayPalDigitalGood{paypal.PayPalDigitalGood{
-    Name: "Test Good", 
-    Amount: 200.000,
-    Quantity: 5,
-  }}
+  ec := &paypal.ExpressCheckout{
+    Amount: float64(5.00),
+    CurrencyCode: paypal.USD,
+    ReturnURL: TEST_RETURN_URL,
+    CancelURL: TEST_CANCEL_URL,
+    BillingAgreement: &paypal.BillingAgreement{
+      "RecurringPayments",
+      "Subscription Test",
+    },
+  }
   
   // Sum amounts and get the token!
-	response, err := client.SetExpressCheckoutDigitalGoods(paypal.SumPayPalDigitalGoodAmounts(&testGoods), 
-    "USD", 
-    TEST_RETURN_URL, 
-    TEST_CANCEL_URL, 
-    testGoods,
-  )
+	response, err := client.SetExpressCheckout(ec)
   
   if err != nil {
     t.Errorf("Error returned in SetExpressCheckoutDigitalGoods: %#v.", err)
