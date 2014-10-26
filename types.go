@@ -38,7 +38,7 @@ type BillingAgreement struct {
 type RecurringPayment struct {
   Email        string
   PayerID      string
-  StartDate    *time.Time
+  StartDate    time.Time
   Description  string
   CurrencyCode CurrencyCode
   Billing      *RecurringPaymentBilling
@@ -50,4 +50,5 @@ type RecurringPaymentBilling struct {
   Period            string
   Frequency         int
   AmountInstallment float64
+  AutoBill          bool
 }

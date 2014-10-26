@@ -25,12 +25,6 @@ type PayPalClient struct {
 	client        *http.Client
 }
 
-type PayPalDigitalGood struct {
-	Name      string
-	Amount    float64
-	Quantity  int16
-}
-
 type PayPalResponse struct {
 	Ack           string
 	CorrelationId string
@@ -62,6 +56,7 @@ func (e *PayPalError) Error() string {
   return message
 }
 
+// CheckoutUrl creates the checkout url given a PayPalResponse after call SetExpressCheckout
 func (r *PayPalResponse) CheckoutUrl() string {
   query := url.Values{}
   query.Set("cmd", "_express-checkout")
@@ -73,26 +68,31 @@ func (r *PayPalResponse) CheckoutUrl() string {
   return fmt.Sprintf("%s?%s", checkoutUrl, query.Encode())
 }
 
+// NewDefaultClient Creates a new PayPalClient for comunication with PayPal.
+// This function uses the standard http.Client of go
 func NewDefaultClient(username, password, signature string, usesSandbox bool) *PayPalClient {
 	return &PayPalClient{username, password, signature, usesSandbox, new(http.Client)}
 }
 
+// NewClient Creates a new PayPalClient for comunication with PayPal.
+// Can receive a different implementation of http.Client for comunication.
 func NewClient(username, password, signature string, usesSandbox bool, client *http.Client) *PayPalClient {
 	return &PayPalClient{username, password, signature, usesSandbox, client}
 }
 
-func (pClient *PayPalClient) PerformRequest(values url.Values) (*PayPalResponse, error) {
-	values.Add("USER", pClient.username);
-	values.Add("PWD", pClient.password);
-	values.Add("SIGNATURE", pClient.signature);
+// PerformRequest performs the request given url values
+func (c *PayPalClient) PerformRequest(values url.Values) (*PayPalResponse, error) {
+	values.Add("USER", c.username);
+	values.Add("PWD", c.password);
+	values.Add("SIGNATURE", c.signature);
 	values.Add("VERSION", NVP_VERSION);
 
 	endpoint := NVP_PRODUCTION_URL
-	if pClient.usesSandbox {
+	if c.usesSandbox {
 		endpoint = NVP_SANDBOX_URL
 	}
   
-	formResponse, err := pClient.client.PostForm(endpoint, values)
+	formResponse, err := c.client.PostForm(endpoint, values)
 	if err != nil { return nil, err }
 	defer formResponse.Body.Close()
 
@@ -100,7 +100,7 @@ func (pClient *PayPalClient) PerformRequest(values url.Values) (*PayPalResponse,
 	if err != nil { return nil, err }
 
 	responseValues, err := url.ParseQuery(string(body))
-	response := &PayPalResponse{usedSandbox: pClient.usesSandbox}
+	response := &PayPalResponse{usedSandbox: c.usesSandbox}
 	if err == nil {
 		response.Ack = responseValues.Get("ACK")
 		response.CorrelationId = responseValues.Get("CORRELATIONID")
@@ -125,7 +125,7 @@ func (pClient *PayPalClient) PerformRequest(values url.Values) (*PayPalResponse,
 	return response, err
 }
 
-//SetExpressCheckout Make the ExpressChckout operation, setting the informations of payment
+// SetExpressCheckout make the ExpressChckout operation, setting the informations of payment
 func (client *PayPalClient) SetExpressCheckout(ec *ExpressCheckout) (*PayPalResponse, error) {
 	values := url.Values{}
 	values.Set("METHOD", "SetExpressCheckout")
@@ -144,7 +144,8 @@ func (client *PayPalClient) SetExpressCheckout(ec *ExpressCheckout) (*PayPalResp
 	return client.PerformRequest(values)
 }
 
-//RecurringPaymentProfile Creates a RecurringPayment Profile with all the required data
+// RecurringPaymentProfile creates a RecurringPayment Profile with all the required data.
+// This function must be called only after call SetExpressCheckout to get a valid token.
 func (client *PayPalClient) RecurringPaymentProfile(token string, rp *RecurringPayment) (*PayPalResponse, error) {
   values := url.Values{}
 	values.Set("METHOD", "CreateRecurringPaymentsProfile")
@@ -158,17 +159,15 @@ func (client *PayPalClient) RecurringPaymentProfile(token string, rp *RecurringP
   values.Set("BILLINGPERIOD", rp.Billing.Period)
   values.Set("BILLINGFREQUENCY", fmt.Sprintf("%d", rp.Billing.Frequency))
   values.Set("AMT", fmt.Sprintf("%.2f", rp.Billing.AmountInstallment))
-  
+  if rp.Billing.AutoBill {
+    values.Set("AUTOBILLOUTAMT", "AddToNextBilling")
+  }  
   return client.PerformRequest(values)
 }
 
-// Convenience function for Sale (Charge)
-func (pClient *PayPalClient) DoExpressCheckoutSale(token, payerId, currencyCode string, finalPaymentAmount float64) (*PayPalResponse, error) {
-  return pClient.DoExpressCheckoutPayment(token, payerId, "Sale", currencyCode, finalPaymentAmount)
-}
-
 // paymentType can be "Sale" or "Authorization" or "Order" (ship later)
-func (pClient *PayPalClient) DoExpressCheckoutPayment(token, payerId, paymentType, currencyCode string, finalPaymentAmount float64) (*PayPalResponse, error) {
+//TODO Create type param for this function
+func (c *PayPalClient) DoExpressCheckout(token, payerId, paymentType, currencyCode string, finalPaymentAmount float64) (*PayPalResponse, error) {
 	values := url.Values{}
 	values.Set("METHOD", "DoExpressCheckoutPayment")
 	values.Add("TOKEN", token)
@@ -177,12 +176,12 @@ func (pClient *PayPalClient) DoExpressCheckoutPayment(token, payerId, paymentTyp
 	values.Add("PAYMENTREQUEST_0_CURRENCYCODE", currencyCode);
 	values.Add("PAYMENTREQUEST_0_AMT", fmt.Sprintf("%.2f", finalPaymentAmount))
 
-	return pClient.PerformRequest(values)
+	return c.PerformRequest(values)
 }
 
-func (pClient *PayPalClient) GetExpressCheckoutDetails(token string) (*PayPalResponse, error) {
+func (client *PayPalClient) ExpressCheckoutDetails(token string) (*PayPalResponse, error) {
   values := url.Values{}
 	values.Add("TOKEN", token)
 	values.Set("METHOD", "GetExpressCheckoutDetails")
-	return pClient.PerformRequest(values)
+	return client.PerformRequest(values)
 }
