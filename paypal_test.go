@@ -68,6 +68,7 @@ func TestSandboxRedirect(t *testing.T) {
 }
 
 func TestCreateRecurringPaymentProfile(t *testing.T) {
+  t.Skip("Skipping test because the token expired")
   username, password, signature := fetchEnvVars(t)
   client := paypal.NewDefaultClient(username, password, signature, true)  
   
@@ -85,8 +86,6 @@ func TestCreateRecurringPaymentProfile(t *testing.T) {
     },
   }
   
-  t.Logf("%#v", rp)
-  /*
   resp, err := client.RecurringPaymentProfile("EC-146658863Y631972K", rp)
   if err != nil {
     t.Errorf(err.Error())
@@ -96,14 +95,13 @@ func TestCreateRecurringPaymentProfile(t *testing.T) {
     t.Errorf("Didn't get ACK=Success back from PayPal. Response was: %#v", resp.Values)
   }
   t.Logf("%v", resp)
-  */
 }
 
 func TestErroneousDoExpressCheckoutSale(t *testing.T) {
   username, password, signature := fetchEnvVars(t)
   
   client := paypal.NewDefaultClient(username, password, signature, true)  
-  response, err := client.DoExpressCheckoutSale("Fake_Token", "Fake_PayerId", "USD", 1000.00)
+  response, err := client.DoExpressCheckout("Fake_Token", "Fake_PayerId", "Sale", "USD", 1000.00)
     
   if err != nil {
     // as expected 

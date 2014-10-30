@@ -43,6 +43,14 @@ type PayPalError struct {
 	SeverityCode  string
 }
 
+var getEndpoint = func(sandbox bool) string {
+  endpoint := NVP_PRODUCTION_URL
+	if sandbox {
+		endpoint = NVP_SANDBOX_URL
+	}
+  return endpoint
+}
+
 func (e *PayPalError) Error() string {
 	var message string
 	if len(e.ErrorCode) != 0 && len(e.ShortMessage) != 0 {
@@ -86,13 +94,8 @@ func (c *PayPalClient) PerformRequest(values url.Values) (*PayPalResponse, error
 	values.Add("PWD", c.password);
 	values.Add("SIGNATURE", c.signature);
 	values.Add("VERSION", NVP_VERSION);
-
-	endpoint := NVP_PRODUCTION_URL
-	if c.usesSandbox {
-		endpoint = NVP_SANDBOX_URL
-	}
   
-	formResponse, err := c.client.PostForm(endpoint, values)
+  formResponse, err := c.client.PostForm(getEndpoint(c.usesSandbox), values)
 	if err != nil { return nil, err }
 	defer formResponse.Body.Close()
 
@@ -179,7 +182,7 @@ func (c *PayPalClient) DoExpressCheckout(token, payerId, paymentType, currencyCo
 	return c.PerformRequest(values)
 }
 
-func (client *PayPalClient) ExpressCheckoutDetails(token string) (*PayPalResponse, error) {
+func (client *PayPalClient) GetExpressCheckoutDetails(token string) (*PayPalResponse, error) {
   values := url.Values{}
 	values.Add("TOKEN", token)
 	values.Set("METHOD", "GetExpressCheckoutDetails")
